@@ -1,0 +1,42 @@
+{
+  "id": "com.github.petergamez.cloudflare-ip",
+  "name": "Cloudflare IP",
+  "version": "1.0.0",
+  "description": "Automatically syncs Cloudflare IP ranges into Nginx UI Access Lists with independent toggles for IPv4 and IPv6.",
+  "author": "Peter Gamez",
+  "license": "MIT",
+  "homepage": "https://github.com/petergamez/cloudflare-access",
+  "min_nginx_ui_version": "3.0.0",
+  "api_version": 1,
+  "capabilities": [
+    "http"
+  ],
+  "permissions": [
+    "kv",
+    "network",
+    "notify",
+    "core_api"
+  ],
+  "network_hosts": [
+    "www.cloudflare.com"
+  ],
+  "permission_reasons": {
+    "kv": "Stores sync status, configuration, and cached Cloudflare IP ranges in plugin KV store.",
+    "network": "Fetches the latest official IP ranges directly from cloudflare.com.",
+    "notify": "Sends notifications when IP synchronization succeeds or encounters issues.",
+    "core_api": "Accesses Nginx UI Access Lists REST API to create and synchronize Cloudflare IP lists."
+  },
+  "server": {
+    "command": [
+      "bun",
+      "server/server.js"
+    ],
+    "lifecycle": "resident"
+  },
+  "http": {
+    "listen": "rpc"
+  },
+  "webapp": {
+    "bundle_path": "webapp/index.js"
+  }
+}
