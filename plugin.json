@@ -3,7 +3,7 @@
   "name": "Cloudflare IP",
   "version": "1.0.0",
   "description": "Automatically syncs Cloudflare IP ranges into Nginx UI Access Lists with independent toggles for IPv4 and IPv6.",
-  "author": "Peter Gamez",
+  "author": "PeterGamez",
   "license": "MIT",
   "homepage": "https://github.com/petergamez/cloudflare-ip",
   "min_nginx_ui_version": "3.0.0",
