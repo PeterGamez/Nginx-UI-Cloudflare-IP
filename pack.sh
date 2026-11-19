@@ -19,45 +19,9 @@ for required_file in "plugin.json" "README.md" "LICENSE" "server/server.js" "web
   fi
 done
 
-# Extract field from plugin.json dynamically
-extract_json_field() {
-  local field="$1"
-  local val=""
-
-  # 1. Try using runtime tools (bun / node / jq / python)
-  if command -v bun >/dev/null 2>&1; then
-    val=$(bun -e "console.log(require('./plugin.json')['$field'] || '')" 2>/dev/null || true)
-  elif command -v node >/dev/null 2>&1; then
-    val=$(node -e "console.log(require('./plugin.json')['$field'] || '')" 2>/dev/null || true)
-  elif command -v jq >/dev/null 2>&1; then
-    val=$(jq -r ".$field // empty" plugin.json 2>/dev/null || true)
-  elif command -v python3 >/dev/null 2>&1; then
-    val=$(python3 -c "import json; print(json.load(open('plugin.json')).get('$field', ''))" 2>/dev/null || true)
-  elif command -v python >/dev/null 2>&1; then
-    val=$(python -c "import json; print(json.load(open('plugin.json')).get('$field', ''))" 2>/dev/null || true)
-  fi
-
-  # 2. Pure POSIX grep & sed fallback
-  if [ -z "$val" ]; then
-    val=$(grep -E "\"$field\"[[:space:]]*:" plugin.json | head -n1 | sed -E "s/.*\"$field\"[[:space:]]*:[[:space:]]*\"([^\"]*)\".*/\1/")
-  fi
-
-  echo "$val"
-}
-
-# Dynamically read id and version from plugin.json
-PLUGIN_ID=$(extract_json_field "id")
-VERSION=$(extract_json_field "version")
-
-if [ -z "$PLUGIN_ID" ]; then
-  echo "ERROR: Failed to extract 'id' from plugin.json." >&2
-  exit 1
-fi
-
-if [ -z "$VERSION" ]; then
-  echo "ERROR: Failed to extract 'version' from plugin.json." >&2
-  exit 1
-fi
+# Read id and version from plugin.json using bun
+PLUGIN_ID=$(bun -e "console.log(require('./plugin.json').id)")
+VERSION=$(bun -e "console.log(require('./plugin.json').version)")
 
 PACKAGE_NAME="${PLUGIN_ID}-${VERSION}.tar.gz"
 
@@ -86,49 +50,18 @@ tar -czvf "$PACKAGE_NAME" \
 echo ""
 echo "==> Package created successfully: ${PACKAGE_NAME}"
 
-# Locate signing key if available
-KEY_FILE="${1:-}"
-if [ -z "$KEY_FILE" ]; then
-  if [ -f "keys/signing.key" ]; then
-    KEY_FILE="keys/signing.key"
-  elif [ -f "signing.key" ]; then
-    KEY_FILE="signing.key"
-  fi
-fi
+# Signing key and nginx-ui binary
+KEY_FILE="${1:-keys/signing.key}"
+NGINX_UI_BIN="nginx-ui"
 
-# Locate nginx-ui binary for signing and linting
-NGINX_UI_BIN=""
-if command -v nginx-ui >/dev/null 2>&1; then
-  NGINX_UI_BIN="nginx-ui"
-elif [ -f "/c/Users/Lenovo/Desktop/nginx-ui-bin/nginx-ui.exe" ]; then
-  NGINX_UI_BIN="/c/Users/Lenovo/Desktop/nginx-ui-bin/nginx-ui.exe"
-elif [ -f "C:/Users/Lenovo/Desktop/nginx-ui-bin/nginx-ui.exe" ]; then
-  NGINX_UI_BIN="C:/Users/Lenovo/Desktop/nginx-ui-bin/nginx-ui.exe"
-fi
-
-# Sign package if key and nginx-ui binary exist
-if [ -n "$KEY_FILE" ] && [ -f "$KEY_FILE" ]; then
-  if [ -n "$NGINX_UI_BIN" ]; then
-    echo "==> Signing package using key: ${KEY_FILE}..."
-    "$NGINX_UI_BIN" plugin sign "$PACKAGE_NAME" --key "$KEY_FILE"
-    echo "==> Package signed successfully!"
-  else
-    echo "NOTICE: Found signing key (${KEY_FILE}), but 'nginx-ui' CLI was not found on PATH."
-    echo "        Run: nginx-ui plugin sign ${PACKAGE_NAME} --key ${KEY_FILE}"
-  fi
-else
-  echo "NOTICE: No signing key found. Package remains unsigned (requires Developer Mode in Nginx UI)."
-  echo "        To generate keys and sign, run:"
-  echo "        nginx-ui plugin key init --id ${PLUGIN_ID} --out keys"
-  echo "        ./pack.sh keys/signing.key"
-fi
+echo "==> Signing package using key: ${KEY_FILE}..."
+"$NGINX_UI_BIN" plugin sign "$PACKAGE_NAME" --key "$KEY_FILE"
+echo "==> Package signed successfully!"
 
 echo ""
 echo "==> Archive file list and permissions:"
 tar -ztvf "$PACKAGE_NAME"
 
-if [ -n "$NGINX_UI_BIN" ]; then
-  echo ""
-  echo "==> Running Nginx UI linter check on package:"
-  "$NGINX_UI_BIN" plugin lint "$PACKAGE_NAME" || true
-fi
+echo ""
+echo "==> Running Nginx UI linter check on package:"
+"$NGINX_UI_BIN" plugin lint "$PACKAGE_NAME"
